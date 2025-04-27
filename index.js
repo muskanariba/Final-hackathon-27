@@ -8,19 +8,19 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB connection
+
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.log(err));
 
-// User model
+
 const User = mongoose.model('User', new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   username: { type: String, required: true },
   password: { type: String, required: true },
 }));
 
-// Signup route
+
 app.post('/signup', async (req, res) => {
   const { email, username, password } = req.body;
 
@@ -34,22 +34,22 @@ app.post('/signup', async (req, res) => {
   }
 });
 app.post('/login', async (req, res) => {
-    console.log('Received data:', req.body); // Log the data
+    console.log('Received data:', req.body); 
     try {
       const { email, password } = req.body;
-      // Check if the user exists
+    
       const user = await User.findOne({ email });
       if (!user) {
         return res.status(400).send('User not found');
       }
   
-      // Compare the password with the hashed password in the database
+    
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         return res.status(400).send('Invalid credentials');
       }
   
-      // If login is successful:
+     
       res.status(200).send('Login successful!');
     } catch (error) {
       console.error('Error during login:', error);
@@ -67,7 +67,7 @@ const Task = mongoose.model('Task', new mongoose.Schema({
     status: String,
   }));
   
-  // Routes
+
   
   // Get all tasks
   app.get('/tasks', async (req, res) => {
@@ -89,6 +89,40 @@ const Task = mongoose.model('Task', new mongoose.Schema({
     res.json(task);
   });
 
+
+app.get('/tasks', async (req, res) => {
+  const { search } = req.query;  
+
+
+  const filter = search ? {
+    $or: [
+      { title: { $regex: search, $options: 'i' } },  
+      { assignedTo: { $regex: search, $options: 'i' } },  
+    ]
+  } : {};
+
+  try {
+    const tasks = await Task.find(filter);
+    res.json(tasks); 
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: 'Error fetching tasks' });
+  }
+});
+app.delete('/tasks/:id', async (req, res) => {
+    const { id } = req.params;
   
+    try {
+      const deletedTask = await Task.findByIdAndDelete(id);
+      if (!deletedTask) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+      res.status(200).json({ message: 'Task deleted successfully' });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  
+
   
 app.listen(5000, () => console.log('Server running on http://localhost:5000'));
